@@ -1,42 +1,84 @@
+# Evaluating Classical and Deep Learning Time-Series Models on the S&P 500 Index
 
-# Comparing Classical and Deep Learning Models on the S&P 500
+## Executive Summary
+Financial time-series are noisy and hard to model. This project explored whether classical approaches like SARIMA can hold their ground against deep learning models such as LSTMs and GRUs, and whether a hybrid of both could achieve lower errors.
 
-Most people in finance want to know one thing: *can we predict the market?*  
-This project didn’t try to beat Wall Street — instead, it set out to **evaluate** how different time-series models behave when applied to nearly 20 years of S&P 500 weekly data.
+This project did not aim to beat Wall Street. Instead, it set out to **systematically evaluate** different time-series model families on the S&P 500 weekly closing prices (2004–2023). The goal was to understand *how classical models perform, how deep learning compares, and whether a hybrid approach could lower errors*.  
 
-The journey began with a simple curiosity:  
-- How far can classical models like **SARIMA** take us?  
-- Do modern deep learning methods (**LSTM, GRU, Bi-LSTM**) actually add value here?  
-- And if neither shines alone, could a **hybrid approach** do better?  
+The findings:  
+- **SARIMAX (with exogenous features) outperformed plain SARIMA** by ~16%.  
+- **Deep learning models (LSTM, GRU, Bi-LSTM)** performed similarly to SARIMA — no clear gain.  
+- **A hybrid SARIMAX–LSTM delivered the lowest errors overall** (Test RMSE ≈ 0.0177, MAE ≈ 0.0134).  
 
-Over the course of 11 notebooks and 1,000+ code cells, the project moved step by step:  
-from building baselines, to engineering exogenous features, to training tuned neural networks, and finally combining both worlds into a **hybrid SARIMAX–LSTM model**.
-
----
-
-## What was done
-- Collected weekly S&P 500 index data (2004–2023) using Yahoo Finance.  
-- Built classical baselines (**SARIMA, SARIMAX**) with rolling averages, volatility, and lags.  
-- Trained recurrent networks (**LSTM, GRU, Bi-LSTM**) with multiple sequence lengths and scalers.  
-- Used tuning frameworks (**Optuna, Keras Tuner, Random Search**) and time-series cross-validation.  
-- Evaluated each model fairly with RMSE, MAE, and directional accuracy.  
-- Combined SARIMAX and LSTM into a **residual-based hybrid**, asking: *can the hybrid capture what the others miss?*
+This project demonstrates the ability to design experiments, evaluate models fairly, and communicate insights in a research-style narrative.  
 
 ---
 
-## What was discovered
-- **SARIMAX outperformed SARIMA**, thanks to exogenous features (≈16% error reduction).  
-- **Deep learning didn’t clearly beat the classical models** — their errors hovered around the same level as SARIMA.  
-- **The hybrid model achieved the lowest errors overall**, showing that statistical structure + neural flexibility can complement each other.  
-- **Directional accuracy was misleading** (inflated by trends). Measuring accuracy on returns was more realistic.  
+## 1. Introduction
+The study was motivated by a simple question:  
+*How do classical statistical models compare with modern neural networks when applied to financial time series, and can a hybrid approach combine the best of both worlds?*  
+
+To answer this, a workflow of 11 notebooks (≈1,000+ executed cells) was developed, progressing from baseline models to deep learning and finally to a hybrid SARIMAX–LSTM design.  
 
 ---
 
-## Why it matters
-This project wasn’t about producing a “magic forecast.”  
-It was about **learning how different modelling families perform, how to tune them responsibly, and how to communicate results clearly**.  
+## 2. Data
+- **Source:** Yahoo Finance (`^GSPC`, S&P 500 Index).  
+- **Frequency:** Weekly closes.  
+- **Period:** 2004-01-01 → 2023-12-31.  
+- **Target:** Closing price (transformed via logs/differences).  
 
-For a data scientist, this demonstrates:  
-- Comfort with both **classical statistics** and **deep learning**.  
-- Ability to design experiments, **tune hyperparameters**, and avoid leakage.  
-- Storytelling with results — including a Tableau dashboard to let others explore the findings interactively.  
+**Feature Engineering:**
+- Rolling averages: 4-week, 12-week.  
+- Rolling volatility: 4-week.  
+- Lags: 1-week, 4-week.  
+
+**Train/Test Splits:**
+- 85/15 and 90/10 (time-ordered, no leakage).  
+
+**Scaling (for neural & hybrid models):**
+- StandardScaler, MinMaxScaler, RobustScaler.  
+
+**Neural Input Sequence Lengths:** 4, 12, 26, 52 weeks.  
+
+---
+
+## 3. Methodology
+1. **Baseline (SARIMA):**  
+   Established with `auto_arima` and grid search. ACF/PACF plots and residual diagnostics confirmed adequacy.  
+
+2. **SARIMAX (with exogenous features):**  
+   Extended SARIMA by incorporating rolling averages, volatility, and lags.  
+
+3. **Deep Learning Models (LSTM, GRU, Bi-LSTM):**  
+   - Multiple sequence lengths and scalers tested.  
+   - Hyperparameter tuning with **Optuna**, **Keras Tuner**, and random search.  
+   - Cross-validation with **TimeSeriesSplit**; early stopping applied.  
+
+4. **Hybrid (SARIMAX + LSTM):**  
+   - Stage 1: Fit SARIMAX to capture structure.  
+   - Stage 2: Train LSTM on residuals.  
+   - Final output = SARIMAX forecast + LSTM residual prediction.  
+
+---
+
+## 4. Results
+
+### Comparative Performance (best from each family)
+
+| Model Family | Best Test RMSE | Best Test MAE | Data Split | Notes |
+|--------------|----------------|---------------|------------|-------|
+| SARIMA       | 0.0226         | 0.0171        | 85/15, 52w | Random search |
+| SARIMAX      | 0.0189         | 0.0148        | 85/15, 12w | Auto-ARIMA |
+| LSTM         | 0.0224         | 0.0170        | 85/15, 4w  | Random search (2 layers) |
+| GRU          | 0.0225         | 0.0172        | 85/15, 4w  | Random search (2 layers) |
+| Bi-LSTM      | 0.0225         | 0.0173        | 85/15, 4w  | Random search (3 layers) |
+| Hybrid       | **0.0177**     | **0.0134**    | 85/15, 12w | Robust scaler, Keras Tuner |
+
+### Key Insights
+- **Exogenous signals help:** SARIMAX consistently outperformed SARIMA.  
+- **Deep networks did not clearly beat classical models** in this dataset.  
+- **Hybrid SARIMAX–LSTM produced the lowest errors**, showing complementarity.  
+- **Directional accuracy on levels was misleading** (>95%, inflated by trends). Accuracy on returns is more realistic.  
+
+---
